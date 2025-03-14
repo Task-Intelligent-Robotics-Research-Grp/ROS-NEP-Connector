@@ -16,7 +16,7 @@ https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask
 ```
 - 同様に以下のURLを入力して[Newtonsoft.Json](https://docs.unity3d.com/Packages/com.unity.nuget.newtonsoft-json@3.2/manual/index.html)をインストールする．
 ```
-https://com.unity.nuget.newtonsoft-json
+com.unity.nuget.newtonsoft-json
 ```
 - 同様に以下のURLを入力して本ソフトウェアを取り込む．
 ```
