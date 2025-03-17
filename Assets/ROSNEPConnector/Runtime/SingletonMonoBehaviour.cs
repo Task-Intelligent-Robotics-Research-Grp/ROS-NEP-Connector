@@ -31,7 +31,7 @@ namespace ROSNEPConnector
                 if (_instance != null)
                     return _instance;
 
-                _instance = (T)FindObjectOfType(typeof(T));
+                _instance = (T)FindFirstObjectByType(typeof(T));
 
                 if (_instance == null)
                     Debug.LogError("*** Failed to find a singleton[" + typeof(T) + "]!!");
