@@ -373,10 +373,6 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
-    - target: {fileID: 4641213554014226822, guid: 5196dd08bc9934fbe86fff0d4a27d11e, type: 3}
-      propertyPath: ipAddress
-      value: 163.220.51.108
-      objectReference: {fileID: 0}
     - target: {fileID: 7636960175360705984, guid: 5196dd08bc9934fbe86fff0d4a27d11e, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0
