@@ -24,9 +24,8 @@
     "com.unity.ext.nunit": {
       "version": "2.0.5",
       "depth": 2,
-      "source": "registry",
-      "dependencies": {},
-      "url": "https://packages.unity.com"
+      "source": "builtin",
+      "dependencies": {}
     },
     "com.unity.feature.development": {
       "version": "1.0.2",
@@ -37,7 +36,7 @@
         "com.unity.ide.rider": "3.0.34",
         "com.unity.editorcoroutines": "1.0.0",
         "com.unity.performance.profile-analyzer": "1.2.3",
-        "com.unity.test-framework": "1.4.6",
+        "com.unity.test-framework": "1.5.1",
         "com.unity.testtools.codecoverage": "1.2.6"
       }
     },
@@ -89,15 +88,14 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.test-framework": {
-      "version": "1.4.6",
+      "version": "1.5.1",
       "depth": 1,
-      "source": "registry",
+      "source": "builtin",
       "dependencies": {
         "com.unity.ext.nunit": "2.0.3",
         "com.unity.modules.imgui": "1.0.0",
         "com.unity.modules.jsonserialize": "1.0.0"
-      },
-      "url": "https://packages.unity.com"
+      }
     },
     "com.unity.testtools.codecoverage": {
       "version": "1.2.6",
