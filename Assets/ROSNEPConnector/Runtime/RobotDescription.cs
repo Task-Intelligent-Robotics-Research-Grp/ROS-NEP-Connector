@@ -22,6 +22,18 @@ namespace ROSNEPConnector
     public class RobotDescription : MonoBehaviour
     {
         // NEP messages from ROS
+        public class NepLinkGeometry
+        {
+            public NepLinkGeometry()
+            {
+                origin = new NepPose();
+                primitive = new NepSolidPrimitive();
+            }
+
+            public NepPose origin { set; get; }
+            public NepSolidPrimitive primitive { set; get; }
+            public byte[] data { set; get; }
+        }
         public class NepMaterial
         {
             public NepMaterial()
@@ -41,22 +53,23 @@ namespace ROSNEPConnector
             public NepLink()
             {
                 transform = new NepTransformStamped();
-                origin = new NepPose();
-                primitive = new NepSolidPrimitive();
-                material = new NepMaterial();
+                visual = new NepLinkGeometry();
+                collision = new NepLinkGeometry();
             }
 
             public NepLink(NepTransformStamped nep_transform)
             {
                 transform = nep_transform;
-                primitive = new NepSolidPrimitive();
-                primitive.type = 255;   // null primitive
+                visual = new NepLinkGeometry();
+                visual.primitive = new NepSolidPrimitive();
+                visual.primitive.type = 255;
+                collision.primitive = new NepSolidPrimitive();
+                collision.primitive.type = 255;
             }
 
             public NepTransformStamped transform { set; get; }
-            public NepPose origin { set; get; }
-            public NepSolidPrimitive primitive { set; get; }
-            public byte[] data { set; get; }
+            public NepLinkGeometry visual { set; get; }
+            public NepLinkGeometry collision { set; get; }
             public NepMaterial material { set; get; }
         }
 
@@ -103,32 +116,32 @@ namespace ROSNEPConnector
 
                 var nep_scale = new NepVector3();
 
-                switch (nep_link.primitive.type)
+                switch (nep_link.visual.primitive.type)
                 {
                     case 0:     // Mesh
-                        nep_scale.x = (float)nep_link.primitive.dimensions[0];
-                        nep_scale.y = (float)nep_link.primitive.dimensions[1];
-                        nep_scale.z = (float)nep_link.primitive.dimensions[2];
+                        nep_scale.x = (float)nep_link.visual.primitive.dimensions[0];
+                        nep_scale.y = (float)nep_link.visual.primitive.dimensions[1];
+                        nep_scale.z = (float)nep_link.visual.primitive.dimensions[2];
                         _element = new GameObject();
                         _element.AddComponent<MeshRenderer>();
                         _element.AddComponent<MeshFilter>();
                         break;
                     case 1:     // Box
-                        nep_scale.x = (float)nep_link.primitive.dimensions[0];
-                        nep_scale.y = (float)nep_link.primitive.dimensions[1];
-                        nep_scale.z = (float)nep_link.primitive.dimensions[2];
+                        nep_scale.x = (float)nep_link.visual.primitive.dimensions[0];
+                        nep_scale.y = (float)nep_link.visual.primitive.dimensions[1];
+                        nep_scale.z = (float)nep_link.visual.primitive.dimensions[2];
                         _element = GameObject.CreatePrimitive(PrimitiveType.Cube);
                         break;
                     case 2:     // Sphere
-                        nep_scale.x = (float)(2.0 * nep_link.primitive.dimensions[0]);
+                        nep_scale.x = (float)(2.0 * nep_link.visual.primitive.dimensions[0]);
                         nep_scale.y = nep_scale.x;
                         nep_scale.z = nep_scale.x;
                         _element = GameObject.CreatePrimitive(PrimitiveType.Sphere);
                         break;
                     case 3:    // Cylinder
-                        nep_scale.x = (float)(2.0 * nep_link.primitive.dimensions[1]);
+                        nep_scale.x = (float)(2.0 * nep_link.visual.primitive.dimensions[1]);
                         nep_scale.y = nep_scale.x;
-                        nep_scale.z = (float)(0.5 * nep_link.primitive.dimensions[0]);
+                        nep_scale.z = (float)(0.5 * nep_link.visual.primitive.dimensions[0]);
                         _element = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
                         break;
                     default:    // Null
@@ -140,8 +153,8 @@ namespace ROSNEPConnector
                 _element.transform.name = _element.name;
                 _element.transform.SetParent(_link.transform);
                 _element.transform.localScale = NepGlobal.NepToUnity(nep_scale);
-                _element.transform.localPosition = NepGlobal.NepToUnity(nep_link.origin.position);
-                _element.transform.localRotation = NepGlobal.NepToUnity(nep_link.origin.orientation);
+                _element.transform.localPosition = NepGlobal.NepToUnity(nep_link.visual.origin.position);
+                _element.transform.localRotation = NepGlobal.NepToUnity(nep_link.visual.origin.orientation);
 
                 if (nep_link.material.texture_height == 0)
                 {
@@ -181,13 +194,13 @@ namespace ROSNEPConnector
                     _element.GetComponent<MeshRenderer>().material = material;
                 }
 
-                if (nep_link.primitive.type == 0)    // If the element type is mesh, create a mesh from raw data.
+                if (nep_link.visual.primitive.type == 0)    // If the element type is mesh, create a mesh from raw data.
                 {
-                    var magicstr = Encoding.UTF8.GetString(nep_link.data, 0, 5);
+                    var magicstr = Encoding.UTF8.GetString(nep_link.visual.data, 0, 5);
                     if (magicstr == "<?xml" || magicstr == "<COLL")
-                        _link.transform.root.GetComponent<DAELoader>().CreateMeshFromDAE(_element, nep_link.data);
+                        _link.transform.root.GetComponent<DAELoader>().CreateMeshFromDAE(_element, nep_link.visual.data);
                     else
-                        _link.transform.root.GetComponent<STLLoader>().CreateMeshFromSTL(_element, nep_link.data);
+                        _link.transform.root.GetComponent<STLLoader>().CreateMeshFromSTL(_element, nep_link.visual.data);
                 }
             }
 
@@ -305,26 +318,26 @@ namespace ROSNEPConnector
                 link.transform.transform.rotation.z = 0;
                 link.transform.transform.rotation.w = 1;
 
-                link.origin.position = new NepPoint();
-                link.origin.position.x = 0;
-                link.origin.position.y = 0;
-                link.origin.position.z = 0;
-                link.origin.orientation = new NepQuaternion();
-                link.origin.orientation.x = 0;
-                link.origin.orientation.y = 0;
-                link.origin.orientation.z = 0;
-                link.origin.orientation.w = 1;
+                link.visual.origin.position = new NepPoint();
+                link.visual.origin.position.x = 0;
+                link.visual.origin.position.y = 0;
+                link.visual.origin.position.z = 0;
+                link.visual.origin.orientation = new NepQuaternion();
+                link.visual.origin.orientation.x = 0;
+                link.visual.origin.orientation.y = 0;
+                link.visual.origin.orientation.z = 0;
+                link.visual.origin.orientation.w = 1;
 
-                link.primitive.type = 0; // 0: Mesh, 1: Box, 2: Sphere, 3: Cylinder
-                link.primitive.dimensions = new double[3];
+                link.visual.primitive.type = 0; // 0: Mesh, 1: Box, 2: Sphere, 3: Cylinder
+                link.visual.primitive.dimensions = new double[3];
 #if MILLIMETERS
-                link.primitive.dimensions[0] = 0.001;
-                link.primitive.dimensions[1] = 0.001;
-                link.primitive.dimensions[2] = 0.001;
+                link.visual.primitive.dimensions[0] = 0.001;
+                link.visual.primitive.dimensions[1] = 0.001;
+                link.visual.primitive.dimensions[2] = 0.001;
 #else
-            link.primitive.dimensions[0] = 1;
-            link.primitive.dimensions[1] = 1;
-            link.primitive.dimensions[2] = 1;
+                link.visual.primitive.dimensions[0] = 1;
+                link.visual.primitive.dimensions[1] = 1;
+                link.visual.primitive.dimensions[2] = 1;
 #endif
                 link.material.name = "cyan";
                 link.material.color.r = 0;
@@ -334,7 +347,7 @@ namespace ROSNEPConnector
 
                 //link.data = File.ReadAllBytes("/Users/ueshiba/work/ur5e/wrist2.dae");
                 //link.data = File.ReadAllBytes("C:/Users/user1/Documents/TRanbo.stl");
-                link.data = File.ReadAllBytes(testModel);
+                link.visual.data = File.ReadAllBytes(testModel);
 
                 _links.Add(new Link(transform, link));
 
