@@ -202,6 +202,16 @@ namespace ROSNEPConnector
                     else
                         _link.transform.root.GetComponent<STLLoader>().CreateMeshFromSTL(_element, nep_link.visual.data);
                 }
+                
+                if (nep_link.collision.primitive.type == 0)     // Mesh
+                {
+                    _element.AddComponent<MeshCollider>();
+                    var magicstr = Encoding.UTF8.GetString(nep_link.collision.data, 0, 5);                   
+                    if (magicstr == "<?xml" || magicstr == "<COLL")
+                        _link.transform.root.GetComponent<DAELoader>().CreateMeshFromDAE(_element, nep_link.collision.data, true);
+                    else
+                        _link.transform.root.GetComponent<STLLoader>().CreateMeshFromSTL(_element, nep_link.collision.data, true);
+                }
             }
 
             // private member functions

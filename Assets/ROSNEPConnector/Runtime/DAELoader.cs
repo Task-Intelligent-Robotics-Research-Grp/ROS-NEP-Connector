@@ -90,7 +90,7 @@ namespace ROSNEPConnector
 
         [SerializeField] private bool recalculateNormals;
 
-        public void CreateMeshFromDAE(GameObject element, byte[] data)
+        public void CreateMeshFromDAE(GameObject element, byte[] data, bool collision=false)
         {
             // Load the Collada model
             COLLADA model;
@@ -168,13 +168,21 @@ namespace ROSNEPConnector
                 }
 
                 // Create Unity mesh
-                var mesh = element.GetComponent<MeshFilter>().mesh;
+                var mesh = (collision ? new Mesh() : element.GetComponent<MeshFilter>().mesh);
                 if (vertices.Count > 60000)
                     mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
-                mesh.name = element.name;
                 mesh.SetVertices(vertices);
-                if (!recalculateNormals)
-                    mesh.SetNormals(normals);
+                if (collision)
+                {
+                    mesh.name = element.name + "/collider";
+                }
+                else
+                {
+                    mesh.name = element.name;
+
+                    if (!recalculateNormals)
+                        mesh.SetNormals(normals);
+                }
 
                 // The number of subMesh is the total number of triangle lists in all instance geometries in all nodes.
                 int subMeshCount = 0;
@@ -190,35 +198,45 @@ namespace ROSNEPConnector
                 int offset = 0;
 
                 foreach (var dae_node in dae_visual_scene.nodes.Values)
+                {
                     foreach (var (url, instance_geometry) in dae_node.instance_geometries)
+                    {
                         foreach (var dae_triangles in dae_geometries[url].triangles_list)
                         {
                             mesh.SetTriangles(dae_triangles.triangles, i, true, offset); // Set triangles of i-th submesh
-
-                            var instance_material_target = instance_geometry.instance_material_targets[dae_triangles.material];
-                            //Debug.Log("--- find material: " + instance_material_target);
-                            DAEMaterial dae_material;
-                            if (dae_materials.TryGetValue(instance_material_target, out dae_material))
+                            // Debug.Log("--- #triangles=" + dae_triangles.triangles.Length);
+    
+                            string instance_material_target;
+                            if (dae_triangles.material != null && instance_geometry.instance_material_targets.TryGetValue(dae_triangles.material, out instance_material_target))
                             {
-                                //Debug.Log("--- found!. find effect: " + dae_material.url);
-
-                                DAEEffect dae_effect;
-                                if (dae_material.url != null && dae_effects.TryGetValue(dae_material.url, out dae_effect))
+                                DAEMaterial dae_material;
+                                if (dae_materials.TryGetValue(instance_material_target, out dae_material))
                                 {
-                                    //Debug.Log("--- found!.");
-                                    materials[i] = CreateMaterial(dae_effect);
+                                    DAEEffect dae_effect;
+                                    if (dae_material.url != null && dae_effects.TryGetValue(dae_material.url, out dae_effect))
+                                    {
+                                        materials[i] = CreateMaterial(dae_effect);
+                                    }
                                 }
                             }
 
                             ++i;
                             offset += dae_triangles.vertices.Length;
                         }
-                if (recalculateNormals)
-                    mesh.RecalculateNormals();
-                mesh.RecalculateBounds();
-                mesh.RecalculateTangents();
+                    }
+                }
 
-                element.GetComponent<MeshRenderer>().materials = materials;
+                if (collision)
+                    element.GetComponent<MeshCollider>().sharedMesh = mesh;
+                else
+                {
+                    if (recalculateNormals)
+                        mesh.RecalculateNormals();
+                    mesh.RecalculateBounds();
+                    mesh.RecalculateTangents();
+
+                    element.GetComponent<MeshRenderer>().materials = materials;
+                }
             }
         }
 
@@ -441,8 +459,7 @@ namespace ROSNEPConnector
                 else
                     dae_triangles.normals = new Vector3[0];
 
-
-                //Debug.Log("*** " + dae_triangles.triangles.Length / 3 + " triangles, " + dae_triangles.vertices.Length + " vertices, " + indices.Length + " indices");
+                // Debug.Log("*** " + dae_triangles.triangles.Length / 3 + " triangles, " + dae_triangles.vertices.Length + " vertices, " + indices.Length + " indices");
 
                 dae_geometry.triangles_list.Add(dae_triangles);
             }
@@ -475,15 +492,16 @@ namespace ROSNEPConnector
                 }
 
                 foreach (var instance_geometry in node.instance_geometry)
+                {
+                    var dae_instance_geometry = new DAEVisualScene.Node.InstanceGeometry();
+                
                     if (instance_geometry.bind_material != null && instance_geometry.bind_material.technique_common != null)
                     {
-                        var dae_instance_geometry = new DAEVisualScene.Node.InstanceGeometry();
-
                         foreach (var technique_common in instance_geometry.bind_material.technique_common)
-                            dae_instance_geometry.instance_material_targets[technique_common.symbol] = technique_common.target.Remove(0, 1);
-
-                        dae_node.instance_geometries.Add(instance_geometry.url.Remove(0, 1), dae_instance_geometry);
+                            dae_instance_geometry.instance_material_targets[technique_common.symbol] = technique_common.target.Remove(0, 1);                    
                     }
+                    dae_node.instance_geometries.Add(instance_geometry.url.Remove(0, 1), dae_instance_geometry);
+                }
 
                 dae_visual_scene.nodes.Add(node.id, dae_node);
             }
