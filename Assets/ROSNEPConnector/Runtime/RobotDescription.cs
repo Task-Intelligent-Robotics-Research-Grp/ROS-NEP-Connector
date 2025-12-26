@@ -103,6 +103,7 @@ namespace ROSNEPConnector
             // member variables
             private GameObject _link;
             private GameObject _element;
+            private GameObject _collider;
 
             // public member functions
             public Link(Transform parent_transform, NepLink nep_link)
@@ -114,104 +115,10 @@ namespace ROSNEPConnector
                 _link.transform.localPosition = NepGlobal.NepToUnity(nep_link.transform.transform.translation);
                 _link.transform.localRotation = NepGlobal.NepToUnity(nep_link.transform.transform.rotation);
 
-                var nep_scale = new NepVector3();
+                _element = create_primitive(nep_link.visual, nep_link.material);
 
-                switch (nep_link.visual.primitive.type)
-                {
-                    case 0:     // Mesh
-                        nep_scale.x = (float)nep_link.visual.primitive.dimensions[0];
-                        nep_scale.y = (float)nep_link.visual.primitive.dimensions[1];
-                        nep_scale.z = (float)nep_link.visual.primitive.dimensions[2];
-                        _element = new GameObject();
-                        _element.AddComponent<MeshRenderer>();
-                        _element.AddComponent<MeshFilter>();
-                        break;
-                    case 1:     // Box
-                        nep_scale.x = (float)nep_link.visual.primitive.dimensions[0];
-                        nep_scale.y = (float)nep_link.visual.primitive.dimensions[1];
-                        nep_scale.z = (float)nep_link.visual.primitive.dimensions[2];
-                        _element = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                        break;
-                    case 2:     // Sphere
-                        nep_scale.x = (float)(2.0 * nep_link.visual.primitive.dimensions[0]);
-                        nep_scale.y = nep_scale.x;
-                        nep_scale.z = nep_scale.x;
-                        _element = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                        break;
-                    case 3:    // Cylinder
-                        nep_scale.x = (float)(2.0 * nep_link.visual.primitive.dimensions[1]);
-                        nep_scale.y = nep_scale.x;
-                        nep_scale.z = (float)(0.5 * nep_link.visual.primitive.dimensions[0]);
-                        _element = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-                        break;
-                    default:    // Null
-                        _element = null;
-                        return;
-                }
-
-                _element.name = _link.name + "/element";
-                _element.transform.name = _element.name;
-                _element.transform.SetParent(_link.transform);
-                _element.transform.localScale = NepGlobal.NepToUnity(nep_scale);
-                _element.transform.localPosition = NepGlobal.NepToUnity(nep_link.visual.origin.position);
-                _element.transform.localRotation = NepGlobal.NepToUnity(nep_link.visual.origin.orientation);
-
-                if (nep_link.material.texture_height == 0)
-                {
-                    _element.GetComponent<MeshRenderer>().material.SetColor("_Color",
-                                                                            new Color(nep_link.material.color.r,
-                                                                                      nep_link.material.color.g,
-                                                                                      nep_link.material.color.b,
-                                                                                      nep_link.material.color.a));
-                }
-                else
-                {
-                    // Create texture from incoming texture data
-                    var texture = new Texture2D((int)nep_link.material.texture_width, (int)nep_link.material.texture_height, TextureFormat.RGB24, true);
-                    texture.SetPixelData(nep_link.material.texture_data, 0);
-                    texture.Apply();
-
-                    // Create cubemap
-                    var cubemap_width = Math.Max(4 * ((texture.width - 1) / 4 + 1), 4 * ((texture.height - 1) / 4 + 1));
-                    Debug.Log("*** cubemap_width=" + cubemap_width);
-                    var cubemap = new Cubemap(cubemap_width, TextureFormat.RGBA32, false);
-                    Graphics.ConvertTexture(texture, 0, cubemap, (int)CubemapFace.PositiveX);
-                    Graphics.ConvertTexture(texture, 0, cubemap, (int)CubemapFace.NegativeX);
-                    Graphics.ConvertTexture(texture, 0, cubemap, (int)CubemapFace.PositiveY);
-                    Graphics.ConvertTexture(texture, 0, cubemap, (int)CubemapFace.NegativeY);
-                    Graphics.ConvertTexture(texture, 0, cubemap, (int)CubemapFace.PositiveZ);
-                    Graphics.ConvertTexture(texture, 0, cubemap, (int)CubemapFace.NegativeZ);
-                    cubemap.Apply();
-
-                    var shader = Shader.Find("Hidden/CubeCopy");
-                    var material = new Material(shader);
-                    if (material == null)
-                    {
-                        Debug.Log("*** Failed to create material!");
-                        return;
-                    }
-                    material.SetTexture("_MainTex", cubemap);
-                    _element.GetComponent<MeshRenderer>().material = material;
-                }
-
-                if (nep_link.visual.primitive.type == 0)    // If the element type is mesh, create a mesh from raw data.
-                {
-                    var magicstr = Encoding.UTF8.GetString(nep_link.visual.data, 0, 5);
-                    if (magicstr == "<?xml" || magicstr == "<COLL")
-                        _link.transform.root.GetComponent<DAELoader>().CreateMeshFromDAE(_element, nep_link.visual.data);
-                    else
-                        _link.transform.root.GetComponent<STLLoader>().CreateMeshFromSTL(_element, nep_link.visual.data);
-                }
-                
-                if (nep_link.collision.primitive.type == 0)     // Mesh
-                {
-                    _element.AddComponent<MeshCollider>();
-                    var magicstr = Encoding.UTF8.GetString(nep_link.collision.data, 0, 5);                   
-                    if (magicstr == "<?xml" || magicstr == "<COLL")
-                        _link.transform.root.GetComponent<DAELoader>().CreateMeshFromDAE(_element, nep_link.collision.data, true);
-                    else
-                        _link.transform.root.GetComponent<STLLoader>().CreateMeshFromSTL(_element, nep_link.collision.data, true);
-                }
+                if (nep_link.visual.primitive.type == 0)
+                    _collider = create_primitive(nep_link.collision, null);
             }
 
             // private member functions
@@ -220,6 +127,124 @@ namespace ROSNEPConnector
                 foreach (var material in _element.GetComponent<MeshRenderer>().materials)
                     Destroy(material);
                 Destroy(_element.GetComponent<MeshFilter>().mesh);
+            }
+
+            private GameObject create_primitive(NepLinkGeometry nep_geometry, NepMaterial nep_material)
+            {
+                GameObject primitive;
+                var collision = (nep_material == null);
+                var nep_scale = new NepVector3();
+
+                switch (nep_geometry.primitive.type)
+                {
+                    case 0:     // Mesh
+                        nep_scale.x = (float)nep_geometry.primitive.dimensions[0];
+                        nep_scale.y = (float)nep_geometry.primitive.dimensions[1];
+                        nep_scale.z = (float)nep_geometry.primitive.dimensions[2];
+                        primitive = new GameObject();
+                        if (collision)
+                            primitive.AddComponent<MeshCollider>();
+                        else
+                        {
+                            primitive.AddComponent<MeshRenderer>();
+                            primitive.AddComponent<MeshFilter>();
+                        }
+                        break;
+                    case 1:     // Box
+                        nep_scale.x = (float)nep_geometry.primitive.dimensions[0];
+                        nep_scale.y = (float)nep_geometry.primitive.dimensions[1];
+                        nep_scale.z = (float)nep_geometry.primitive.dimensions[2];
+                        primitive = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                        if (collision)
+                        {
+                            GameObject.Destroy(primitive.GetComponent<MeshRenderer>());
+                            GameObject.Destroy(primitive.GetComponent<MeshFilter>());
+                        }
+                        break;
+                    case 2:     // Sphere
+                        nep_scale.x = (float)(2.0 * nep_geometry.primitive.dimensions[0]);
+                        nep_scale.y = nep_scale.x;
+                        nep_scale.z = nep_scale.x;
+                        primitive = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                        if (collision)
+                        {
+                            GameObject.Destroy(primitive.GetComponent<MeshRenderer>());
+                            GameObject.Destroy(primitive.GetComponent<MeshFilter>());
+                        }
+                        break;
+                    case 3:    // Cylinder
+                        nep_scale.x = (float)(2.0 * nep_geometry.primitive.dimensions[1]);
+                        nep_scale.y = nep_scale.x;
+                        nep_scale.z = (float)(0.5 * nep_geometry.primitive.dimensions[0]);
+                        primitive = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                        if (collision)
+                        {
+                            GameObject.Destroy(primitive.GetComponent<MeshRenderer>());
+                            GameObject.Destroy(primitive.GetComponent<MeshFilter>());
+                        }
+                        break;
+                    default:    // Null
+                        return null;
+                }
+
+                primitive.name = _link.name + (collision ? "/collider" : "/element");
+                primitive.transform.name = primitive.name;
+                primitive.transform.SetParent(_link.transform);
+                primitive.transform.localScale = NepGlobal.NepToUnity(nep_scale);
+                primitive.transform.localPosition = NepGlobal.NepToUnity(nep_geometry.origin.position);
+                primitive.transform.localRotation = NepGlobal.NepToUnity(nep_geometry.origin.orientation);
+
+                if (nep_geometry.primitive.type == 0)    // If the element type is mesh, create a mesh from raw data.
+                {
+                    var magicstr = Encoding.UTF8.GetString(nep_geometry.data, 0, 5);
+                    if (magicstr == "<?xml" || magicstr == "<COLL")
+                        _link.transform.root.GetComponent<DAELoader>().CreateMeshFromDAE(primitive, nep_geometry.data, collision);
+                    else
+                        _link.transform.root.GetComponent<STLLoader>().CreateMeshFromSTL(primitive, nep_geometry.data, collision);
+                }
+
+                if (!collision)
+                {
+                    if (nep_material.texture_height == 0)
+                    {
+                        primitive.GetComponent<MeshRenderer>().material.SetColor("_Color",
+                                                                                new Color(nep_material.color.r,
+                                                                                        nep_material.color.g,
+                                                                                        nep_material.color.b,
+                                                                                        nep_material.color.a));
+                    }
+                    else
+                    {
+                        // Create texture from incoming texture data
+                        var texture = new Texture2D((int)nep_material.texture_width, (int)nep_material.texture_height, TextureFormat.RGB24, true);
+                        texture.SetPixelData(nep_material.texture_data, 0);
+                        texture.Apply();
+
+                        // Create cubemap
+                        var cubemap_width = Math.Max(4 * ((texture.width - 1) / 4 + 1), 4 * ((texture.height - 1) / 4 + 1));
+                        Debug.Log("*** cubemap_width=" + cubemap_width);
+                        var cubemap = new Cubemap(cubemap_width, TextureFormat.RGBA32, false);
+                        Graphics.ConvertTexture(texture, 0, cubemap, (int)CubemapFace.PositiveX);
+                        Graphics.ConvertTexture(texture, 0, cubemap, (int)CubemapFace.NegativeX);
+                        Graphics.ConvertTexture(texture, 0, cubemap, (int)CubemapFace.PositiveY);
+                        Graphics.ConvertTexture(texture, 0, cubemap, (int)CubemapFace.NegativeY);
+                        Graphics.ConvertTexture(texture, 0, cubemap, (int)CubemapFace.PositiveZ);
+                        Graphics.ConvertTexture(texture, 0, cubemap, (int)CubemapFace.NegativeZ);
+                        cubemap.Apply();
+
+                        var shader = Shader.Find("Hidden/CubeCopy");
+                        var material = new Material(shader);
+                        if (material == null)
+                        {
+                            Debug.Log("*** Failed to create material!");
+                            return primitive;
+                        }
+                        material.SetTexture("_MainTex", cubemap);
+                        primitive.GetComponent<MeshRenderer>().material = material;
+                    }
+                }
+
+                return primitive;
             }
         }
 
