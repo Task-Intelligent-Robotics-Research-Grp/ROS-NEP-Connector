@@ -90,7 +90,7 @@ namespace ROSNEPConnector
 
         [SerializeField] private bool recalculateNormals;
 
-        public void CreateMeshFromDAE(GameObject element, byte[] data, bool collision=false)
+        public void CreateMeshFromDAE(GameObject primitive, byte[] data, bool collision=false)
         {
             // Load the Collada model
             COLLADA model;
@@ -168,21 +168,13 @@ namespace ROSNEPConnector
                 }
 
                 // Create Unity mesh
-                var mesh = (collision ? new Mesh() : element.GetComponent<MeshFilter>().mesh);
+                var mesh = (collision ? new Mesh() : primitive.GetComponent<MeshFilter>().mesh);
                 if (vertices.Count > 60000)
                     mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
                 mesh.SetVertices(vertices);
-                if (collision)
-                {
-                    mesh.name = element.name + "/collider";
-                }
-                else
-                {
-                    mesh.name = element.name;
-
-                    if (!recalculateNormals)
-                        mesh.SetNormals(normals);
-                }
+                mesh.name = primitive.name;
+                if (!collision && !recalculateNormals)
+                    mesh.SetNormals(normals);
 
                 // The number of subMesh is the total number of triangle lists in all instance geometries in all nodes.
                 int subMeshCount = 0;
@@ -227,7 +219,7 @@ namespace ROSNEPConnector
                 }
 
                 if (collision)
-                    element.GetComponent<MeshCollider>().sharedMesh = mesh;
+                    primitive.GetComponent<MeshCollider>().sharedMesh = mesh;
                 else
                 {
                     if (recalculateNormals)
@@ -235,7 +227,7 @@ namespace ROSNEPConnector
                     mesh.RecalculateBounds();
                     mesh.RecalculateTangents();
 
-                    element.GetComponent<MeshRenderer>().materials = materials;
+                    primitive.GetComponent<MeshRenderer>().materials = materials;
                 }
             }
         }

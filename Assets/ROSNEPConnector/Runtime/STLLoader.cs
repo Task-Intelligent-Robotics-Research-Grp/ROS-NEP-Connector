@@ -9,12 +9,12 @@ namespace ROSNEPConnector
     {
         [SerializeField] private bool recalculateNormals;
 
-        public void CreateMeshFromSTL(GameObject element, byte[] data, bool collision=false)
+        public void CreateMeshFromSTL(GameObject primitive, byte[] data, bool collision = false)
         {
             if (IsBinarySTL(data))
-                CreateMeshFromBinarySTL(element, data, collision);
+                CreateMeshFromBinarySTL(primitive, data, collision);
             else
-                CreateMeshFromAsciiSTL(element, data, collision);
+                CreateMeshFromAsciiSTL(primitive, data, collision);
 
         }
 
@@ -25,7 +25,7 @@ namespace ROSNEPConnector
             return data.Length == 50 * nfaces + 84;
         }
 
-        private void CreateMeshFromAsciiSTL(GameObject element, byte[] data, bool collision)
+        private void CreateMeshFromAsciiSTL(GameObject primitive, byte[] data, bool collision)
         {
             var triangles = new List<int>();
             var vertices = new List<Vector3>();
@@ -72,20 +72,18 @@ namespace ROSNEPConnector
                 }
             }
 
-            var mesh = (collision ? new Mesh() : element.GetComponent<MeshFilter>().mesh);
+            var mesh = (collision ? new Mesh() : primitive.GetComponent<MeshFilter>().mesh);
             if (vertices.Count > 60000)
                 mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
             mesh.SetVertices(vertices);
             mesh.SetTriangles(triangles, 0);
+            mesh.name = primitive.name;
             if (collision)
             {
-                mesh.name = element.name + "/collider";
-                element.GetComponent<MeshCollider>().sharedMesh = mesh;
+                primitive.GetComponent<MeshCollider>().sharedMesh = mesh;
             }
             else
             {
-                mesh.name = element.name;
-
                 if (recalculateNormals)
                     mesh.RecalculateNormals();
                 else
@@ -95,7 +93,7 @@ namespace ROSNEPConnector
             }
         }
 
-        private void CreateMeshFromBinarySTL(GameObject element, byte[] data, bool collision)
+        private void CreateMeshFromBinarySTL(GameObject primitive, byte[] data, bool collision)
         {
             int idx = 80;   // Skip first 80 bytes.
             var nfaces = BitConverter.ToInt32(data, idx);  // Restore #faces
@@ -137,21 +135,19 @@ namespace ROSNEPConnector
 
                 idx += sizeof(UInt16);  // Skip flags
             }
- 
-            var mesh = (collision ? new Mesh() : element.GetComponent<MeshFilter>().mesh);
+
+            var mesh = (collision ? new Mesh() : primitive.GetComponent<MeshFilter>().mesh);
             if (vertices.Count > 60000)
                 mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
             mesh.SetVertices(vertices);
             mesh.SetTriangles(triangles, 0);
+            mesh.name = primitive.name;
             if (collision)
             {
-                mesh.name = element.name + "/collider";
-                element.GetComponent<MeshCollider>().sharedMesh = mesh;
+                primitive.GetComponent<MeshCollider>().sharedMesh = mesh;
             }
             else
             {
-                mesh.name = element.name;
-
                 if (recalculateNormals)
                     mesh.RecalculateNormals();
                 else

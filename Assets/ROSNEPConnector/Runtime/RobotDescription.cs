@@ -53,24 +53,17 @@ namespace ROSNEPConnector
             public NepLink()
             {
                 transform = new NepTransformStamped();
-                visual = new NepLinkGeometry();
-                collision = new NepLinkGeometry();
             }
 
             public NepLink(NepTransformStamped nep_transform)
             {
                 transform = nep_transform;
-                visual = new NepLinkGeometry();
-                visual.primitive = new NepSolidPrimitive();
-                visual.primitive.type = 255;
-                collision.primitive = new NepSolidPrimitive();
-                collision.primitive.type = 255;
             }
 
             public NepTransformStamped transform { set; get; }
-            public NepLinkGeometry visual { set; get; }
-            public NepLinkGeometry collision { set; get; }
-            public NepMaterial material { set; get; }
+            public NepLinkGeometry[] visual_array { set; get; }
+            public NepLinkGeometry[] collision_array { set; get; }
+            public NepMaterial[] material_array { set; get; }
         }
 
         // Request/response to/from ROS services
@@ -102,8 +95,8 @@ namespace ROSNEPConnector
         {
             // member variables
             private GameObject _link;
-            private GameObject _element;
-            private GameObject _collider;
+            private GameObject[] _elements;
+            private GameObject[] _colliders;
 
             // public member functions
             public Link(Transform parent_transform, NepLink nep_link)
@@ -115,21 +108,33 @@ namespace ROSNEPConnector
                 _link.transform.localPosition = NepGlobal.NepToUnity(nep_link.transform.transform.translation);
                 _link.transform.localRotation = NepGlobal.NepToUnity(nep_link.transform.transform.rotation);
 
-                _element = create_primitive(nep_link.visual, nep_link.material);
-
-                if (nep_link.visual.primitive.type == 0)
-                    _collider = create_primitive(nep_link.collision, null);
+                bool has_mesh = false;
+                _elements = new GameObject[nep_link.visual_array.Length];
+                for (int i = 0; i < _elements.Length; ++i)
+                {
+                    _elements[i] = create_primitive(nep_link.visual_array[i], nep_link.material_array[i], i);
+                    has_mesh |= (nep_link.visual_array[i].primitive.type == 0);
+                }
+                if (has_mesh)
+                {
+                    _colliders = new GameObject[nep_link.collision_array.Length];
+                    for (int i = 0; i < _colliders.Length; ++i)
+                        _colliders[i] = create_primitive(nep_link.collision_array[i], null, i);
+                }
             }
 
             // private member functions
             private void OnDestroy()
             {
-                foreach (var material in _element.GetComponent<MeshRenderer>().materials)
-                    Destroy(material);
-                Destroy(_element.GetComponent<MeshFilter>().mesh);
+                foreach (var element in _elements)
+                {
+                    foreach (var material in element.GetComponent<MeshRenderer>().materials)
+                        Destroy(material);
+                    Destroy(element.GetComponent<MeshFilter>().mesh);
+                }
             }
 
-            private GameObject create_primitive(NepLinkGeometry nep_geometry, NepMaterial nep_material)
+            private GameObject create_primitive(NepLinkGeometry nep_geometry, NepMaterial nep_material, int i)
             {
                 GameObject primitive;
                 var collision = (nep_material == null);
@@ -187,14 +192,14 @@ namespace ROSNEPConnector
                         return null;
                 }
 
-                primitive.name = _link.name + (collision ? "/collider" : "/element");
+                primitive.name = _link.name + (collision ? "/collider" : "/element") + i.ToString();
                 primitive.transform.name = primitive.name;
                 primitive.transform.SetParent(_link.transform);
                 primitive.transform.localScale = NepGlobal.NepToUnity(nep_scale);
                 primitive.transform.localPosition = NepGlobal.NepToUnity(nep_geometry.origin.position);
                 primitive.transform.localRotation = NepGlobal.NepToUnity(nep_geometry.origin.orientation);
 
-                if (nep_geometry.primitive.type == 0)    // If the element type is mesh, create a mesh from raw data.
+                if (nep_geometry.primitive.type == 0)    // If the primitive type is mesh, create a mesh from raw data.
                 {
                     var magicstr = Encoding.UTF8.GetString(nep_geometry.data, 0, 5);
                     if (magicstr == "<?xml" || magicstr == "<COLL")
@@ -339,55 +344,55 @@ namespace ROSNEPConnector
         // Member functions
         private async void Start()
         {
-            if (testModel != "")
-            {
-                // Only for testing.
-                var link = new NepLink();
-                link.transform.header.frame_id = "base_link";
-                link.transform.child_frame_id = "tmp_link";
-                link.transform.transform.translation.x = 0;
-                link.transform.transform.translation.y = 0;
-                link.transform.transform.translation.z = 0;
-                link.transform.transform.rotation.x = 0;
-                link.transform.transform.rotation.y = 0;
-                link.transform.transform.rotation.z = 0;
-                link.transform.transform.rotation.w = 1;
+//             if (testModel != "")
+//             {
+//                 // Only for testing.
+//                 var link = new NepLink();
+//                 link.transform.header.frame_id = "base_link";
+//                 link.transform.child_frame_id = "tmp_link";
+//                 link.transform.transform.translation.x = 0;
+//                 link.transform.transform.translation.y = 0;
+//                 link.transform.transform.translation.z = 0;
+//                 link.transform.transform.rotation.x = 0;
+//                 link.transform.transform.rotation.y = 0;
+//                 link.transform.transform.rotation.z = 0;
+//                 link.transform.transform.rotation.w = 1;
 
-                link.visual.origin.position = new NepPoint();
-                link.visual.origin.position.x = 0;
-                link.visual.origin.position.y = 0;
-                link.visual.origin.position.z = 0;
-                link.visual.origin.orientation = new NepQuaternion();
-                link.visual.origin.orientation.x = 0;
-                link.visual.origin.orientation.y = 0;
-                link.visual.origin.orientation.z = 0;
-                link.visual.origin.orientation.w = 1;
+//                 link.visual.origin.position = new NepPoint();
+//                 link.visual.origin.position.x = 0;
+//                 link.visual.origin.position.y = 0;
+//                 link.visual.origin.position.z = 0;
+//                 link.visual.origin.orientation = new NepQuaternion();
+//                 link.visual.origin.orientation.x = 0;
+//                 link.visual.origin.orientation.y = 0;
+//                 link.visual.origin.orientation.z = 0;
+//                 link.visual.origin.orientation.w = 1;
 
-                link.visual.primitive.type = 0; // 0: Mesh, 1: Box, 2: Sphere, 3: Cylinder
-                link.visual.primitive.dimensions = new double[3];
-#if MILLIMETERS
-                link.visual.primitive.dimensions[0] = 0.001;
-                link.visual.primitive.dimensions[1] = 0.001;
-                link.visual.primitive.dimensions[2] = 0.001;
-#else
-                link.visual.primitive.dimensions[0] = 1;
-                link.visual.primitive.dimensions[1] = 1;
-                link.visual.primitive.dimensions[2] = 1;
-#endif
-                link.material.name = "cyan";
-                link.material.color.r = 0;
-                link.material.color.g = 1;
-                link.material.color.b = 0;
-                link.material.color.a = 1;
+//                 link.visual.primitive.type = 0; // 0: Mesh, 1: Box, 2: Sphere, 3: Cylinder
+//                 link.visual.primitive.dimensions = new double[3];
+// #if MILLIMETERS
+//                 link.visual.primitive.dimensions[0] = 0.001;
+//                 link.visual.primitive.dimensions[1] = 0.001;
+//                 link.visual.primitive.dimensions[2] = 0.001;
+// #else
+//                 link.visual.primitive.dimensions[0] = 1;
+//                 link.visual.primitive.dimensions[1] = 1;
+//                 link.visual.primitive.dimensions[2] = 1;
+// #endif
+//                 link.material.name = "cyan";
+//                 link.material.color.r = 0;
+//                 link.material.color.g = 1;
+//                 link.material.color.b = 0;
+//                 link.material.color.a = 1;
 
-                //link.data = File.ReadAllBytes("/Users/ueshiba/work/ur5e/wrist2.dae");
-                //link.data = File.ReadAllBytes("C:/Users/user1/Documents/TRanbo.stl");
-                link.visual.data = File.ReadAllBytes(testModel);
+//                 //link.data = File.ReadAllBytes("/Users/ueshiba/work/ur5e/wrist2.dae");
+//                 //link.data = File.ReadAllBytes("C:/Users/user1/Documents/TRanbo.stl");
+//                 link.visual.data = File.ReadAllBytes(testModel);
 
-                _links.Add(new Link(transform, link));
+//                 _links.Add(new Link(transform, link));
 
-                return;
-            }
+//                 return;
+//             }
 
             var scene_name = gameObject.scene.name;
 
