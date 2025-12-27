@@ -333,13 +333,10 @@ namespace ROSNEPConnector
         private List<Link> _links = new List<Link>();
         private Dictionary<string, byte[]> _mesh_resources = new Dictionary<string, byte[]>();
         private Dictionary<Int32, Marker> _markers = new Dictionary<Int32, Marker>();
-        private bool _get_links_completed = false;
-        private NepPublisher _getLinksReqPub;
-        private NepCallback _getLinksResCallback;
+        private NepClient<NepGetLinksReq, NepGetLinksRes> _getLinks;
         private NepCallback _transformsCallback;
         private NepCallback _markerCallback;
-        private NepPublisher _getMeshResourceReqPub;
-        private NepCallback _getMeshResouceResCallback;
+        private NepClient<NepGetMeshResourceReq, NepGetMeshResourceRes> _getMeshResource;
 
         // Member functions
         private async void Start()
@@ -396,11 +393,8 @@ namespace ROSNEPConnector
 
             var scene_name = gameObject.scene.name;
 
-            // Create publisher and corresponding callback for the service of nep_bridge/GetLinks type
-            Debug.Log("*** Creating publisher[" + scene_name + "/get_links] and callback[" + scene_name + "/links]");
-            _getLinksReqPub = NepGlobal.Node.NewPub(scene_name + "/get_links", "json", NepGlobal.Conf);
-            _getLinksResCallback = NepGlobal.Node.NewCallback(scene_name + "/links", GetLinksResCallback, NepGlobal.IP);
-            _getLinksResCallback.Start();
+            // Create service client of aist_msgs/srv/GetLinks type
+            _getLinks = new NepClient<NepGetLinksReq, NepGetLinksRes>(scene_name + "/get_links", scene_name + "/links");
 
             // Create subscriber callback for the topic of tf2_msgs/TFMessage type
             Debug.Log("*** Creating callback[" + scene_name + "/transforms]");
@@ -412,34 +406,20 @@ namespace ROSNEPConnector
             _markerCallback = NepGlobal.Node.NewCallback(scene_name + "/collision_marker", MarkerCallback, NepGlobal.IP);
             _markerCallback.Start();
 
-            // Create publlisher and corresponding callback for the service of aist_msgs/GetMeshResource type
-            Debug.Log("*** Creating publisher[" + scene_name + "/get_mesh_resource] and callback[" + scene_name + "/mesh_resource]");
-            _getMeshResourceReqPub = NepGlobal.Node.NewPub(scene_name + "/get_mesh_resource", "json", NepGlobal.Conf);
-            _getMeshResouceResCallback = NepGlobal.Node.NewCallback(scene_name + "/mesh_resource", GetMeshResourceResCallback, NepGlobal.IP);
-            _getMeshResouceResCallback.Start();
+            // Create service client of aist_msgs/srv/GetMeshResource type
+            _getMeshResource = new NepClient<NepGetMeshResourceReq, NepGetMeshResourceRes>(scene_name + "/get_mesh_resource",
+                                                                                           scene_name + "/mesh_resource");
 
             // Wait 1.0sec before sending request for links.
             await UniTask.Delay(TimeSpan.FromSeconds(1f));
 
             Debug.Log("*** Send request to service[" + scene_name + "/get_links]");
-            _get_links_completed = false;
-            _getLinksReqPub.Publish(new NepGetLinksReq());
-
-            await UniTask.WaitUntil(() => _get_links_completed, cancellationToken: this.GetCancellationTokenOnDestroy());
+            var nep_links = await _getLinks.call(new NepGetLinksReq());
             Debug.Log("*** Received response from service[" + scene_name + "/get_links]");
-        }
-
-        private void GetLinksResCallback(string message)
-        {
-            //Debug.Log(message);
-            var nep_links = JsonConvert.DeserializeObject<NepGetLinksRes>(message).links;
-
-            if (nep_links == null)
-                return;
-
+        
             _links.Clear();
 
-            foreach (var nep_link in nep_links)
+            foreach (var nep_link in nep_links.links)
             {
                 //Debug.Log("*** parent=" + nep_link.transform.header.frame_id + ", me=" + nep_link.transform.child_frame_id);
                 var parent_transform = Utility.FindTransform(nep_link.transform.header.frame_id, transform);
@@ -447,8 +427,6 @@ namespace ROSNEPConnector
                     parent_transform = transform;
                 _links.Add(new Link(parent_transform, nep_link));
             }
-
-            _get_links_completed = true;
         }
 
         private void TransformsCallback(string message)
@@ -480,7 +458,7 @@ namespace ROSNEPConnector
             }
         }
 
-        private void MarkerCallback(string message)
+        private async void MarkerCallback(string message)
         {        //Debug.Log(message);
             var nep_marker = JsonConvert.DeserializeObject<NepMarker>(message);
             // Debug.Log("*** Marker with base_link[" + nep_marker.header.frame_id + "] detected");
@@ -508,8 +486,9 @@ namespace ROSNEPConnector
                     data = null;
                 else if (!_mesh_resources.TryGetValue(nep_marker.mesh_resource, out data))
                 {
-                    _getMeshResourceReqPub.Publish(new NepGetMeshResourceReq(nep_marker.mesh_resource));
-                    return;
+                    var mesh_resource = await _getMeshResource.call(new NepGetMeshResourceReq(nep_marker.mesh_resource));
+                    data = mesh_resource.data;
+                    _mesh_resources[nep_marker.mesh_resource] = data;
                 }
 
                 // Search for a transform named nep_marker.header.frame_id, i.e. marker's base link.
@@ -521,14 +500,6 @@ namespace ROSNEPConnector
             {
                 marker.SetPose(nep_marker.pose);
             }
-        }
-
-        private void GetMeshResourceResCallback(string message)
-        {
-            var nep_resource_res = JsonConvert.DeserializeObject<NepGetMeshResourceRes>(message);
-            // Debug.Log("*** Response to request for mesh resource[" + nep_resource_res.mesh_resource + "]");
-
-            _mesh_resources[nep_resource_res.mesh_resource] = nep_resource_res.data;
         }
     }
 }
