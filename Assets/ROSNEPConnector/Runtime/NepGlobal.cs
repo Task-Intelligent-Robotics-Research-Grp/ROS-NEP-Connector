@@ -124,6 +124,11 @@ namespace NepVisualizationMsgs
         public string mesh_resource { set; get; }
         public bool mesh_use_embeded_materials { set; get; }
     }
+
+    public class NepMarkerArray
+    {
+        public NepMarker[] markers;
+    }
 }
 
 namespace NepTF2Msgs

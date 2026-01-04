@@ -2,6 +2,7 @@ using UnityEngine;
 using Nep;
 using Newtonsoft.Json;
 using Cysharp.Threading.Tasks;
+using System.Threading.Tasks;
 
 namespace ROSNEPConnector
 {  
@@ -14,14 +15,14 @@ namespace ROSNEPConnector
         public NepClient(string req_name, string res_name)
         {
             _reqPub = NepGlobal.Node.NewPub(req_name, "json", NepGlobal.Conf);
-            _resCallback = NepGlobal.Node.NewCallback(res_name, this.callback, NepGlobal.IP);
+            _resCallback = NepGlobal.Node.NewCallback(res_name, this.ResCallback, NepGlobal.IP);
             _nep_res = null;
 
             _resCallback.Start();
             Debug.Log("*** Service client[" + req_name + " => " + res_name + "] started");
         }
 
-        public async UniTask<RES> call(REQ nep_req)
+        public async UniTask<RES> CallAsync(REQ nep_req)
         {
             _nep_res = null;
             _reqPub.Publish(nep_req);
@@ -31,7 +32,7 @@ namespace ROSNEPConnector
             return _nep_res;
         }
 
-        private void callback(string message)
+        private void ResCallback(string message)
         {
             _nep_res = JsonConvert.DeserializeObject<RES>(message);
         }
