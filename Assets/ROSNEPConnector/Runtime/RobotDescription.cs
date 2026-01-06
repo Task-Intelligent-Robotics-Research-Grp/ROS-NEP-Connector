@@ -272,8 +272,8 @@ namespace ROSNEPConnector
 
         // Member variables
         [SerializeField] private string testModel;
-        private List<Link> _links;
-        private Dictionary<string, Link> _collision_objects = new Dictionary<string, Link>();
+        private Dictionary<string, Link> _links = new Dictionary<string, Link>();
+        private Dictionary<Int32, Link> _collision_objects = new Dictionary<Int32, Link>();
         private NepClient<NepGetLinksReq, NepGetLinksRes> _getLinks;
         private NepCallback _transformsCallback;
         private NepCallback _markerArrayCallback;
@@ -366,7 +366,7 @@ namespace ROSNEPConnector
                 var parent_transform = Utility.FindTransform(nep_link.transform.header.frame_id, transform);
                 if (parent_transform == null)
                     parent_transform = transform;
-                _links.Add(new Link(parent_transform, nep_link));
+                _links.Add(nep_link.transform.child_frame_id, new Link(parent_transform, nep_link));
             }
         }
 
@@ -394,7 +394,7 @@ namespace ROSNEPConnector
                 {
                     var parent_transform = Utility.FindTransform(nep_transform.header.frame_id, transform);
                     if (parent_transform != null)
-                        _links.Add(new Link(parent_transform, new NepLink(nep_transform)));
+                        _links.Add(nep_transform.child_frame_id, new Link(parent_transform, new NepLink(nep_transform)));
                 }
             }
         }
@@ -404,17 +404,15 @@ namespace ROSNEPConnector
             var nep_marker_array = JsonConvert.DeserializeObject<NepMarkerArray>(message);
             // Debug.Log("*** Marker with base_link[" + nep_marker.header.frame_id + "] detected");
 
-            var add = false;
             foreach (var nep_marker in nep_marker_array.markers)
             {
                 switch (nep_marker.action)
                 {
                     case 0: // ADD/MODIFY
-                        add = true;
                         break;
                     case 2: // DELETE
                         _collision_objects.Remove(nep_marker.id);
-                        break;
+                        return;
                     case 3: // DELETEALL
                         _collision_objects.Clear();
                         return;
@@ -422,22 +420,20 @@ namespace ROSNEPConnector
                         return;
                 }
             }
-            if (!add)
-                return;
 
-            var frame_id = nep_marker_array[0].header.frame_id;
-            Transform tfm = Utility.FindTransform(frame_id, transform);
-            if (tfm == null)
-                return;
-
+            var marker = nep_marker_array.markers[0];
             Link collision_object;
-            if (!_collision_objects.TryGetValue(frame_id, collision_object))
+            if (!_links.TryGetValue(marker.header.frame_id, out collision_object))
+                return;
+
+            if (!collision_object.HasPrimitives())
             {
-                var nep_collision_object = await _getCollisionObject.call_async(new NepGetCollisionObjectReq(object_type));
+                var nep_collision_object = await _getCollisionObject.CallAsync(new NepGetCollisionObjectReq(marker.text));
                 collision_object.SetPrimitives(nep_collision_object.visual_array, nep_collision_object.collision_array, nep_collision_object.material_array);
+                _collision_objects.Add(marker.id, collision_object);
             }
             
-            collision_object.SetPose(nep_marker_array[0].pose);            
+            collision_object.SetPose(marker.pose);            
         }
     }
 }
