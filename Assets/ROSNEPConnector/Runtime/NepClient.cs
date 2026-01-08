@@ -2,7 +2,6 @@ using UnityEngine;
 using Nep;
 using Newtonsoft.Json;
 using Cysharp.Threading.Tasks;
-using System.Threading.Tasks;
 
 namespace ROSNEPConnector
 {  
@@ -15,7 +14,7 @@ namespace ROSNEPConnector
         public NepClient(string req_name, string res_name)
         {
             _reqPub = NepGlobal.Node.NewPub(req_name, "json", NepGlobal.Conf);
-            _resCallback = NepGlobal.Node.NewCallback(res_name, this.ResCallback, NepGlobal.IP);
+            _resCallback = NepGlobal.Node.NewCallback(res_name, ResCallback, NepGlobal.IP);
             _nep_res = null;
 
             _resCallback.Start();

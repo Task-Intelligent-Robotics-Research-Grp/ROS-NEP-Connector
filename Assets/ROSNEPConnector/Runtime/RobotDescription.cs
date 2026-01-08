@@ -1,9 +1,7 @@
-#define MILLIMETERS
-
 using System;
+using System.Threading;
 using System.Text;
 using System.Collections.Generic;
-using System.IO;
 using UnityEngine;
 using NepStdMsgs;
 using NepGeometryMsgs;
@@ -13,7 +11,6 @@ using NepTF2Msgs;
 using Nep;
 using Newtonsoft.Json;
 using Cysharp.Threading.Tasks;
-using System.Net;
 
 namespace ROSNEPConnector
 {
@@ -54,11 +51,17 @@ namespace ROSNEPConnector
             public NepLink()
             {
                 transform = new NepTransformStamped();
+                visual_array = new NepLinkGeometry[0];
+                collision_array = new NepLinkGeometry[0];
+                material_array = new NepMaterial[0];
             }
 
             public NepLink(NepTransformStamped nep_transform)
             {
                 transform = nep_transform;
+                visual_array = new NepLinkGeometry[0];
+                collision_array = new NepLinkGeometry[0];
+                material_array = new NepMaterial[0];
             }
 
             public NepTransformStamped transform { set; get; }
@@ -113,10 +116,6 @@ namespace ROSNEPConnector
                 SetPrimitives(nep_link.visual_array, nep_link.collision_array, nep_link.material_array);
             }
 
-            public bool HasPrimitives()
-            {
-                return _elements.Length > 0;
-            }
             public void SetPrimitives(NepLinkGeometry[] visual_array, NepLinkGeometry[] collision_array, NepMaterial[] material_array)
             {
                 bool has_mesh = false;
@@ -135,16 +134,6 @@ namespace ROSNEPConnector
             }
 
             // private member functions
-            private void OnDestroy()
-            {
-                foreach (var element in _elements)
-                {
-                    foreach (var material in element.GetComponent<MeshRenderer>().materials)
-                        Destroy(material);
-                    Destroy(element.GetComponent<MeshFilter>().mesh);
-                }
-            }
-
             private GameObject CreatePrimitive(NepLinkGeometry nep_geometry, NepMaterial nep_material, int i)
             {
                 GameObject primitive;
@@ -263,75 +252,29 @@ namespace ROSNEPConnector
                 return primitive;
             }
 
-            public void SetPose(NepPose nep_pose)
+            private void OnDestroy()
             {
-                _link.transform.localPosition = NepGlobal.NepToUnity(nep_pose.position);
-                _link.transform.localRotation = NepGlobal.NepToUnity(nep_pose.orientation);
+                foreach (var element in _elements)
+                {
+                    foreach (var material in element.GetComponent<MeshRenderer>().materials)
+                        Destroy(material);
+                    Destroy(element.GetComponent<MeshFilter>().mesh);
+                }
             }
         }
 
         // Member variables
-        [SerializeField] private string testModel;
         private Dictionary<string, Link> _links = new Dictionary<string, Link>();
         private Dictionary<Int32, Link> _collision_objects = new Dictionary<Int32, Link>();
         private NepClient<NepGetLinksReq, NepGetLinksRes> _getLinks;
         private NepCallback _transformsCallback;
         private NepCallback _markerArrayCallback;
         private NepClient<NepGetCollisionObjectReq, NepGetCollisionObjectRes> _getCollisionObject;
+        private SemaphoreSlim _semaphore = new SemaphoreSlim(1, 1);
 
         // Member functions
         private async void Start()
         {
-//             if (testModel != "")
-//             {
-//                 // Only for testing.
-//                 var link = new NepLink();
-//                 link.transform.header.frame_id = "base_link";
-//                 link.transform.child_frame_id = "tmp_link";
-//                 link.transform.transform.translation.x = 0;
-//                 link.transform.transform.translation.y = 0;
-//                 link.transform.transform.translation.z = 0;
-//                 link.transform.transform.rotation.x = 0;
-//                 link.transform.transform.rotation.y = 0;
-//                 link.transform.transform.rotation.z = 0;
-//                 link.transform.transform.rotation.w = 1;
-
-//                 link.visual.origin.position = new NepPoint();
-//                 link.visual.origin.position.x = 0;
-//                 link.visual.origin.position.y = 0;
-//                 link.visual.origin.position.z = 0;
-//                 link.visual.origin.orientation = new NepQuaternion();
-//                 link.visual.origin.orientation.x = 0;
-//                 link.visual.origin.orientation.y = 0;
-//                 link.visual.origin.orientation.z = 0;
-//                 link.visual.origin.orientation.w = 1;
-
-//                 link.visual.primitive.type = 0; // 0: Mesh, 1: Box, 2: Sphere, 3: Cylinder
-//                 link.visual.primitive.dimensions = new double[3];
-// #if MILLIMETERS
-//                 link.visual.primitive.dimensions[0] = 0.001;
-//                 link.visual.primitive.dimensions[1] = 0.001;
-//                 link.visual.primitive.dimensions[2] = 0.001;
-// #else
-//                 link.visual.primitive.dimensions[0] = 1;
-//                 link.visual.primitive.dimensions[1] = 1;
-//                 link.visual.primitive.dimensions[2] = 1;
-// #endif
-//                 link.material.name = "cyan";
-//                 link.material.color.r = 0;
-//                 link.material.color.g = 1;
-//                 link.material.color.b = 0;
-//                 link.material.color.a = 1;
-
-//                 //link.data = File.ReadAllBytes("/Users/ueshiba/work/ur5e/wrist2.dae");
-//                 //link.data = File.ReadAllBytes("C:/Users/user1/Documents/TRanbo.stl");
-//                 link.visual.data = File.ReadAllBytes(testModel);
-
-//                 _links.Add(new Link(transform, link));
-
-//                 return;
-//             }
-
             var scene_name = gameObject.scene.name;
 
             // Create service client of aist_msgs/srv/GetLinks type
@@ -348,13 +291,13 @@ namespace ROSNEPConnector
             _markerArrayCallback.Start();
 
             // Create service client of aist_msgs/srv/GetMeshResource type
-            _getCollisionObject = new NepClient<NepGetCollisionObjectReq, NepGetCollisionObjectRes>(scene_name + "/get_mesh_resource",
-                                                                                           scene_name + "/mesh_resource");
+            _getCollisionObject = new NepClient<NepGetCollisionObjectReq, NepGetCollisionObjectRes>(scene_name + "/get_collision_object",
+                                                                                           scene_name + "/collision_object");
 
             // Wait 1.0sec before sending request for links.
             await UniTask.Delay(TimeSpan.FromSeconds(1f));
 
-            Debug.Log("*** Send request to service[" + scene_name + "/get_links]");
+            Debug.Log("*** Send request for service[" + scene_name + "/get_links]");
             var nep_links = await _getLinks.CallAsync(new NepGetLinksReq());
             Debug.Log("*** Received response from service[" + scene_name + "/get_links]");
         
@@ -402,10 +345,11 @@ namespace ROSNEPConnector
         private async void MarkerArrayCallback(string message)
         {        //Debug.Log(message);
             var nep_marker_array = JsonConvert.DeserializeObject<NepMarkerArray>(message);
-            // Debug.Log("*** Marker with base_link[" + nep_marker.header.frame_id + "] detected");
 
-            foreach (var nep_marker in nep_marker_array.markers)
+            await _semaphore.WaitAsync();   // This callback should be mutually exclusive.
+            try
             {
+                var nep_marker = nep_marker_array.markers[0];
                 switch (nep_marker.action)
                 {
                     case 0: // ADD/MODIFY
@@ -419,21 +363,22 @@ namespace ROSNEPConnector
                     default:
                         return;
                 }
-            }
 
-            var marker = nep_marker_array.markers[0];
-            Link collision_object;
-            if (!_links.TryGetValue(marker.header.frame_id, out collision_object))
-                return;
+                Link collision_object;
+                if (!_links.TryGetValue(nep_marker.header.frame_id, out collision_object) ||
+                    _collision_objects.ContainsKey(nep_marker.id))
+                    return;
 
-            if (!collision_object.HasPrimitives())
-            {
-                var nep_collision_object = await _getCollisionObject.CallAsync(new NepGetCollisionObjectReq(marker.text));
+                Debug.Log("*** Send request for collision object of type[" + nep_marker.text + "]");
+                var nep_collision_object = await _getCollisionObject.CallAsync(new NepGetCollisionObjectReq(nep_marker.text));
+                Debug.Log("*** Received response with collision object of type[" + nep_marker.text + "]");
                 collision_object.SetPrimitives(nep_collision_object.visual_array, nep_collision_object.collision_array, nep_collision_object.material_array);
-                _collision_objects.Add(marker.id, collision_object);
+                _collision_objects.Add(nep_marker.id, collision_object);
             }
-            
-            collision_object.SetPose(marker.pose);            
+            finally
+            {
+                _semaphore.Release();
+            }
         }
     }
 }
