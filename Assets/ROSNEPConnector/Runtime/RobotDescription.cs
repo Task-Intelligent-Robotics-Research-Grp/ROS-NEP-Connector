@@ -349,31 +349,33 @@ namespace ROSNEPConnector
             await _semaphore.WaitAsync();   // This callback should be mutually exclusive.
             try
             {
-                var nep_marker = nep_marker_array.markers[0];
-                switch (nep_marker.action)
+                foreach (var nep_marker in nep_marker_array.markers)
                 {
-                    case 0: // ADD/MODIFY
-                        break;
-                    case 2: // DELETE
-                        _collision_objects.Remove(nep_marker.id);
+                    switch (nep_marker.action)
+                    {
+                        case 0: // ADD/MODIFY
+                            break;
+                        case 2: // DELETE
+                            _collision_objects.Remove(nep_marker.id);
+                            continue;
+                        case 3: // DELETEALL
+                            _collision_objects.Clear();
+                            return;
+                        default:
+                            return;
+                    }
+
+                    Link collision_object;
+                    if (!_links.TryGetValue(nep_marker.header.frame_id, out collision_object) ||
+                        _collision_objects.ContainsKey(nep_marker.id))
                         return;
-                    case 3: // DELETEALL
-                        _collision_objects.Clear();
-                        return;
-                    default:
-                        return;
+
+                    Debug.Log("*** Send request for collision object of type[" + nep_marker.text + "]");
+                    var nep_collision_object = await _getCollisionObject.CallAsync(new NepGetCollisionObjectReq(nep_marker.text));
+                    Debug.Log("*** Received response with collision object of type[" + nep_marker.text + "]");
+                    collision_object.SetPrimitives(nep_collision_object.visual_array, nep_collision_object.collision_array, nep_collision_object.material_array);
+                    _collision_objects.Add(nep_marker.id, collision_object);
                 }
-
-                Link collision_object;
-                if (!_links.TryGetValue(nep_marker.header.frame_id, out collision_object) ||
-                    _collision_objects.ContainsKey(nep_marker.id))
-                    return;
-
-                Debug.Log("*** Send request for collision object of type[" + nep_marker.text + "]");
-                var nep_collision_object = await _getCollisionObject.CallAsync(new NepGetCollisionObjectReq(nep_marker.text));
-                Debug.Log("*** Received response with collision object of type[" + nep_marker.text + "]");
-                collision_object.SetPrimitives(nep_collision_object.visual_array, nep_collision_object.collision_array, nep_collision_object.material_array);
-                _collision_objects.Add(nep_marker.id, collision_object);
             }
             finally
             {
