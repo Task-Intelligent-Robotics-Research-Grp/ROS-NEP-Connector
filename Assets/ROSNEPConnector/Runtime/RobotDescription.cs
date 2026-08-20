@@ -116,6 +116,11 @@ namespace ROSNEPConnector
                 SetPrimitives(nep_link.visual_array, nep_link.collision_array, nep_link.material_array);
             }
 
+            public void Clear()
+            {
+                Destroy(_link);
+            }
+
             public void SetPrimitives(NepLinkGeometry[] visual_array, NepLinkGeometry[] collision_array, NepMaterial[] material_array)
             {
                 bool has_mesh = false;
@@ -131,6 +136,11 @@ namespace ROSNEPConnector
                     for (int i = 0; i < _colliders.Length; ++i)
                         _colliders[i] = CreatePrimitive(collision_array[i], null, i);
                 }        
+            }
+
+            public bool HasPrimitives()
+            {
+                return (_elements.Length > 0);
             }
 
             // private member functions
@@ -251,21 +261,10 @@ namespace ROSNEPConnector
 
                 return primitive;
             }
-
-            private void OnDestroy()
-            {
-                foreach (var element in _elements)
-                {
-                    foreach (var material in element.GetComponent<MeshRenderer>().materials)
-                        Destroy(material);
-                    Destroy(element.GetComponent<MeshFilter>().mesh);
-                }
-            }
         }
 
         // Member variables
         private Dictionary<string, Link> _links = new Dictionary<string, Link>();
-        private Dictionary<Int32, Link> _collision_objects = new Dictionary<Int32, Link>();
         private NepClient<NepGetLinksReq, NepGetLinksRes> _getLinks;
         private NepCallback _transformsCallback;
         private NepCallback _markerArrayCallback;
@@ -309,7 +308,7 @@ namespace ROSNEPConnector
                 var parent_transform = Utility.FindTransform(nep_link.transform.header.frame_id, transform);
                 if (parent_transform == null)
                     parent_transform = transform;
-                _links.Add(nep_link.transform.child_frame_id, new Link(parent_transform, nep_link));
+                _links.TryAdd(nep_link.transform.child_frame_id, new Link(parent_transform, nep_link));
             }
         }
 
@@ -337,7 +336,7 @@ namespace ROSNEPConnector
                 {
                     var parent_transform = Utility.FindTransform(nep_transform.header.frame_id, transform);
                     if (parent_transform != null)
-                        _links.Add(nep_transform.child_frame_id, new Link(parent_transform, new NepLink(nep_transform)));
+                        _links.TryAdd(nep_transform.child_frame_id, new Link(parent_transform, new NepLink(nep_transform)));
                 }
             }
         }
@@ -351,30 +350,30 @@ namespace ROSNEPConnector
             {
                 foreach (var nep_marker in nep_marker_array.markers)
                 {
+                    Link collision_object;
+
                     switch (nep_marker.action)
                     {
                         case 0: // ADD/MODIFY
+                            if (_links.TryGetValue(nep_marker.header.frame_id, out collision_object) &&
+                                !collision_object.HasPrimitives())
+                            {
+                                Debug.Log("*** Send request for collision object of type[" + nep_marker.text + "]");
+                                var nep_collision_object = await _getCollisionObject.CallAsync(new NepGetCollisionObjectReq(nep_marker.text));
+                                Debug.Log("*** Received response with collision object of type[" + nep_marker.text + "]");
+                                collision_object.SetPrimitives(nep_collision_object.visual_array, nep_collision_object.collision_array, nep_collision_object.material_array);
+                            }
                             break;
                         case 2: // DELETE
-                            _collision_objects.Remove(nep_marker.id);
-                            continue;
-                        case 3: // DELETEALL
-                            _collision_objects.Clear();
-                            return;
+                            if (_links.Remove(nep_marker.header.frame_id, out collision_object))
+                            {
+                                Debug.Log("*** Remove collision object with base link[" + nep_marker.header.frame_id + "]");
+                                collision_object.Clear();
+                            }
+                            break;
                         default:
-                            return;
+                            break;
                     }
-
-                    Link collision_object;
-                    if (!_links.TryGetValue(nep_marker.header.frame_id, out collision_object) ||
-                        _collision_objects.ContainsKey(nep_marker.id))
-                        return;
-
-                    Debug.Log("*** Send request for collision object of type[" + nep_marker.text + "]");
-                    var nep_collision_object = await _getCollisionObject.CallAsync(new NepGetCollisionObjectReq(nep_marker.text));
-                    Debug.Log("*** Received response with collision object of type[" + nep_marker.text + "]");
-                    collision_object.SetPrimitives(nep_collision_object.visual_array, nep_collision_object.collision_array, nep_collision_object.material_array);
-                    _collision_objects.Add(nep_marker.id, collision_object);
                 }
             }
             finally
