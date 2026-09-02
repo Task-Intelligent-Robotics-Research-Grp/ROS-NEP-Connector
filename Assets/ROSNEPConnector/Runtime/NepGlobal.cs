@@ -7,6 +7,12 @@ using NepGeometryMsgs;
 
 namespace NepStdMsgs
 {
+    public class NepHeader
+    {
+        public string frame_id { set; get; }
+        public NepSensorMsgs.Time stamp { set; get; }
+    }
+
     public class NepDuration
     {
         public Int32 sec { set; get; }
@@ -28,13 +34,13 @@ namespace NepGeometryMsgs
     {
         public NepPoseStamped()
         {
-            header = new Header();
+            header = new NepHeader();
             pose = new NepPose();
             pose.position = new NepPoint();
             pose.orientation = new NepQuaternion();
         }
 
-        public Header header { get; set; }
+        public NepHeader header { get; set; }
         public NepPose pose { get; set; }
     }
 
@@ -42,13 +48,13 @@ namespace NepGeometryMsgs
     {
         public NepTransformStamped()
         {
-            header = new Header();
+            header = new NepHeader();
             transform = new NepTransform();
             transform.translation = new NepVector3();
             transform.rotation = new NepQuaternion();
         }
 
-        public Header header { set; get; }
+        public NepHeader header { set; get; }
         public string child_frame_id { set; get; }
         public NepTransform transform { set; get; }
     }
@@ -57,13 +63,13 @@ namespace NepGeometryMsgs
     {
         public NepWrenchStamped()
         {
-            header = new Header();
+            header = new NepHeader();
             wrench = new NepWrench();
             wrench.force = new NepVector3();
             wrench.torque = new NepVector3();
         }
 
-        public Header header { get; set; }
+        public NepHeader header { get; set; }
         public NepWrench wrench { get; set; }        
     }
 }
@@ -99,7 +105,7 @@ namespace NepVisualizationMsgs
     {
         public NepMarker()
         {
-            header = new Header();
+            header = new NepHeader();
             pose = new NepPose();
             scale = new NepVector3();
             color = new NepColorRGBA();
@@ -108,7 +114,7 @@ namespace NepVisualizationMsgs
             color.r = color.g = color.b = color.a = 1;
         }
 
-        public Header header { set; get; }
+        public NepHeader header { set; get; }
         public string ns { set; get; }
         public Int32 id { set; get; }
         public Int32 type { set; get; }
