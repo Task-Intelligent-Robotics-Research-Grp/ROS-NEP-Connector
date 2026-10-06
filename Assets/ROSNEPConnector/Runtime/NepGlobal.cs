@@ -9,6 +9,7 @@ namespace NepStdMsgs
 {
     public class NepHeader
     {
+        public Int32 seq { set; get; }
         public string frame_id { set; get; }
         public NepSensorMsgs.Time stamp { set; get; }
     }
