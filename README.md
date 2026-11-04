@@ -20,6 +20,6 @@ com.unity.nuget.newtonsoft-json
 ```
 - 同様に以下のURLを入力して本ソフトウェアを取り込む．
 ```
-git@github.com:Automation-Research-Team/ROS-NEP-Connector.git?path=Assets/ROSNEPConnector
+git@github.com:Task-Intelligent-Robotics-Research-Grp/ROS-NEP-Connector.git?path=Assets/ROSNEPConnector
 ```
 以上で，アプリケーションが`NEP+`を介して`ROS`と通信するための機能が利用できるようになる．
