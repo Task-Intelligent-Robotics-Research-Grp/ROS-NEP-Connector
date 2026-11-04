@@ -1,7 +1,7 @@
 {
     "name": "jp.aist.ros-nep-connector",
     "displayName": "ROS NEP Connector", 
-    "version": "0.1.0",               
+    "version": "1.0.0",               
     "unity": "2022.3",
     "description": "Unity package for developping systems collaborating with ROS",
     "author": {
@@ -16,6 +16,6 @@
     ],
     
     "dependencies": {
-	"com.unity.nuget.newtonsoft-json": "3.2.1"
+	"com.unity.nuget.newtonsoft-json": "3.2.2"
     }
 }
