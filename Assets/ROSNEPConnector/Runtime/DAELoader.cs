@@ -234,12 +234,15 @@ namespace ROSNEPConnector
 
         private Material CreateMaterial(DAEEffect effect)
         {
-            var material = new Material(Shader.Find("Standard"));
+            var material = new Material(Shader.Find("Universal Render Pipeline/Lit"));
 
             if (effect.emission != null)
+            {
+                material.EnableKeyword("_EMISSION");
                 material.SetColor("_EmissionColor", new Color((float)effect.emission[0], (float)effect.emission[1], (float)effect.emission[2], (float)effect.emission[3]));
+            }
             if (effect.diffuse != null)
-                material.SetColor("_Color", new Color((float)effect.diffuse[0], (float)effect.diffuse[1], (float)effect.diffuse[2], (float)effect.diffuse[3]));
+                material.SetColor("_BaseColor", new Color((float)effect.diffuse[0], (float)effect.diffuse[1], (float)effect.diffuse[2], (float)effect.diffuse[3]));
             material.SetFloat("_GlossyReflections", (float)effect.reflectivity);
 
             return material;

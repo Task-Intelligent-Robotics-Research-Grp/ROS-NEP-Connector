@@ -222,7 +222,7 @@ namespace ROSNEPConnector
                 {
                     if (nep_material.texture_height == 0)
                     {
-                        primitive.GetComponent<MeshRenderer>().material.SetColor("_Color",
+                        primitive.GetComponent<MeshRenderer>().material.SetColor("_BaseColor",
                                                                                 new Color(nep_material.color.r,
                                                                                         nep_material.color.g,
                                                                                         nep_material.color.b,
