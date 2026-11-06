@@ -222,11 +222,13 @@ namespace ROSNEPConnector
                 {
                     if (nep_material.texture_height == 0)
                     {
-                        primitive.GetComponent<MeshRenderer>().material.SetColor("_BaseColor",
-                                                                                new Color(nep_material.color.r,
-                                                                                        nep_material.color.g,
-                                                                                        nep_material.color.b,
-                                                                                        nep_material.color.a));
+                        var material = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+                        material.SetColor("_BaseColor",
+                                          new Color(nep_material.color.r,
+                                                    nep_material.color.g,
+                                                    nep_material.color.b,
+                                                    nep_material.color.a));
+                        primitive.GetComponent<MeshRenderer>().material = material;
                     }
                     else
                     {
@@ -247,14 +249,13 @@ namespace ROSNEPConnector
                         Graphics.ConvertTexture(texture, 0, cubemap, (int)CubemapFace.NegativeZ);
                         cubemap.Apply();
 
-                        var shader = Shader.Find("Hidden/CubeCopy");
-                        var material = new Material(shader);
+                        var material = new Material(Shader.Find("Hidden/CubeCopy"));
                         if (material == null)
                         {
                             Debug.Log("*** Failed to create material!");
                             return primitive;
                         }
-                        material.SetTexture("_MainTex", cubemap);
+                        material.SetTexture("_BaseMap", cubemap);
                         primitive.GetComponent<MeshRenderer>().material = material;
                     }
                 }
